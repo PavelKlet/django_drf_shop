@@ -1,0 +1,41 @@
+version: "3.9"
+
+services:
+  db:
+    image: postgres:16
+    ports:
+      - "5432:5432"
+    env_file:
+      - ./.env
+    volumes:
+      - ./data/db:/var/lib/postgresql/data
+  web:
+    build:
+      context: .
+      dockerfile: ./Dockerfile
+    depends_on:
+      - db
+    command: >
+      sh -c "python manage.py collectstatic --noinput &&
+             python manage.py makemigrations &&
+             python manage.py migrate &&
+             gunicorn -b 0.0.0.0:8000 megano.wsgi:application"
+    volumes:
+      - ./static:/usr/src/app/static
+      - ./uploads:/usr/src/app/uploads
+    ports:
+      - "8000:8000"
+    env_file:
+      - ./.env
+  nginx:
+    build:
+      dockerfile: ./Dockerfile
+      context: ./docker/nginx/
+    image: web_nginx
+    volumes:
+      - ./static:/usr/src/app/static
+      - ./uploads:/usr/src/app/uploads
+    depends_on:
+      - web
+    ports:
+      - "80:80"
